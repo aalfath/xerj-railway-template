@@ -1,0 +1,47 @@
+# Public front door. Railway terminates TLS and sends plain HTTP to $PORT.
+# XERJ and mcp-proxy listen on loopback only.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		protocols h1
+	}
+	log {
+		output stderr
+		format console
+		level ERROR
+	}
+}
+
+:{$PORT} {
+	header -Server
+
+	# XERJ's web console signs in with passkeys bound to "localhost", so it
+	# cannot work on a Railway domain, and its first-run setup page must not be
+	# public. The API key protects everything else.
+	@console path *xerj-console*
+	respond @console 404
+
+	# Remote MCP endpoint (streamable HTTP). mcp-proxy checks the bearer token.
+	handle /mcp {
+		rewrite * /xerj/mcp
+		reverse_proxy 127.0.0.1:{$MCP_PROXY_PORT} {
+			header_up Host 127.0.0.1:{$MCP_PROXY_PORT}
+			flush_interval -1
+		}
+	}
+
+	# Health check for Railway, no key needed.
+	handle /healthz {
+		rewrite * /health/ready
+		reverse_proxy 127.0.0.1:{$XERJ_ES_PORT}
+	}
+
+	# Everything else: XERJ's Elasticsearch-compatible API (needs the key).
+	handle {
+		reverse_proxy 127.0.0.1:{$XERJ_ES_PORT} {
+			flush_interval -1
+		}
+	}
+}
