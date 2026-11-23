@@ -45,6 +45,17 @@ if ! awk -v d="$DATA_DIR" '$2 == d { f = 1 } END { exit !f }' /proc/mounts; then
 fi
 ( umask 077; printf '%s\n' "$key" > "$DATA_DIR/admin.key" )
 
+# Memory cap for XERJ's write breaker: a share of the container's limit, so a
+# heavy bulk load gets HTTP 429 (back off and retry) before the kernel kills
+# the process. An explicit cap also stops XERJ from raising its breaker by
+# whatever it holds at boot. XERJ_MAX_PROCESS_MEMORY_MB overrides it.
+limit_bytes="$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo max)"
+case "$limit_bytes" in ''|max|*[!0-9]*) limit_mb=2048 ;; *) limit_mb=$(( limit_bytes / 1048576 )) ;; esac
+[ "$limit_mb" -gt 65536 ] && limit_mb=65536
+XERJ_CAP_MB=$(( limit_mb * ${XERJ_MEMORY_SHARE_PERCENT:-45} / 100 ))
+[ "$XERJ_CAP_MB" -lt 128 ] && XERJ_CAP_MB=128
+log "container memory limit ${limit_mb} MB; XERJ write breaker cap ${XERJ_CAP_MB} MB"
+
 RUN_DIR=/tmp/xerj-railway
 mkdir -p "$RUN_DIR"; chmod 700 "$RUN_DIR"
 umask 077
@@ -70,10 +81,6 @@ model_cache_dir = "$DATA_DIR/models"
 flush_size_mb = ${XERJ_FLUSH_SIZE_MB:-16}
 wal_max_size_mb = 128
 
-[indexing]
-turbo_batch_size = ${XERJ_TURBO_BATCH_SIZE:-500}
-turbo_parallel = ${XERJ_TURBO_PARALLEL:-false}
-
 [engine]
 ingest_shards = ${XERJ_INGEST_SHARDS:-1}
 
@@ -85,8 +92,9 @@ max_total_memtable_mb = ${XERJ_MAX_TOTAL_MEMTABLE_MB:-48}
 max_segment_hydration_cache_mb = ${XERJ_HYDRATION_CACHE_MB:-32}
 max_concurrent_searches = ${XERJ_MAX_CONCURRENT_SEARCHES:-8}
 max_query_memory_mb = ${XERJ_MAX_QUERY_MEMORY_MB:-128}
-max_body_bytes = ${XERJ_MAX_BODY_BYTES:-20971520}
-memory_watermark_percent = ${XERJ_MEMORY_WATERMARK_PERCENT:-70}
+max_body_bytes = ${XERJ_MAX_BODY_BYTES:-10485760}
+memory_watermark_percent = ${XERJ_MEMORY_WATERMARK_PERCENT:-80}
+max_process_memory_mb = $XERJ_CAP_MB
 TOML
 
 cat > "$RUN_DIR/mcp-proxy.json" <<JSON
