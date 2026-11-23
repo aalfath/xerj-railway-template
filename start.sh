@@ -61,6 +61,32 @@ enabled = true
 
 [embedding]
 model_cache_dir = "$DATA_DIR/models"
+
+# Small-memory profile (Railway's Free plan gives a service 0.5 GB). XERJ's
+# defaults size buffers for a laptop; these keep the in-memory write buffers
+# and caches small so a bulk load is answered with HTTP 429 (retry) instead
+# of an out-of-memory kill. Raise them on bigger plans.
+[storage]
+flush_size_mb = ${XERJ_FLUSH_SIZE_MB:-16}
+wal_max_size_mb = 128
+
+[indexing]
+turbo_batch_size = ${XERJ_TURBO_BATCH_SIZE:-500}
+turbo_parallel = ${XERJ_TURBO_PARALLEL:-false}
+
+[engine]
+ingest_shards = ${XERJ_INGEST_SHARDS:-1}
+
+[merge]
+max_concurrent = 1
+
+[limits]
+max_total_memtable_mb = ${XERJ_MAX_TOTAL_MEMTABLE_MB:-48}
+max_segment_hydration_cache_mb = ${XERJ_HYDRATION_CACHE_MB:-32}
+max_concurrent_searches = ${XERJ_MAX_CONCURRENT_SEARCHES:-8}
+max_query_memory_mb = ${XERJ_MAX_QUERY_MEMORY_MB:-128}
+max_body_bytes = ${XERJ_MAX_BODY_BYTES:-20971520}
+memory_watermark_percent = ${XERJ_MEMORY_WATERMARK_PERCENT:-70}
 TOML
 
 cat > "$RUN_DIR/mcp-proxy.json" <<JSON
