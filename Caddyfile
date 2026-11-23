@@ -20,8 +20,10 @@
 	# XERJ's web console signs in with passkeys bound to "localhost", so it
 	# cannot work on a Railway domain, and its first-run setup page must not be
 	# public. The API key protects everything else.
-	@console path *xerj-console*
-	respond @console 404
+	@console path */_xerj-console*
+	handle @console {
+		respond 404
+	}
 
 	# Remote MCP endpoint (streamable HTTP). mcp-proxy checks the bearer token.
 	handle /mcp {
