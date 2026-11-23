@@ -11,6 +11,7 @@
 #   PORT           public port (Railway sets it; default 8080)
 #   XERJ_EMBED_MODE, XERJ_LOG, XERJ_MAX_PROCESS_MEMORY_MB: read by XERJ itself
 #   XERJ_DISABLE_FEEDBACK  default true: the MCP field-report tools send nothing
+#   TOKIO_WORKER_THREADS, _RJEM_MALLOC_CONF: small-container defaults below
 set -euo pipefail
 
 log() { echo "xerj-railway: $*"; }
@@ -27,6 +28,15 @@ export XERJ_NO_AUTOSTART=1
 export XERJ_HUB_HOME="${XERJ_HUB_HOME:-$DATA_DIR/hub}"
 export XERJ_CODE_HOME="${XERJ_CODE_HOME:-$DATA_DIR/code}"
 export HOME="${HOME:-/root}"
+# Allocator and thread pools for a small container. Railway hosts run
+# transparent huge pages in "always" mode and show the host's CPU count: with
+# XERJ's defaults (jemalloc with THP, at least 64 async workers) the process
+# held 270-420 MB of huge pages before any write, over its own write breaker,
+# so every write got HTTP 429 and the service was later OOM-killed at 0.5 GB.
+# With THP off for jemalloc and a few workers it holds about 20 MB at boot.
+# XERJ's built-in allocator settings are kept; thp/narenas are added.
+export _RJEM_MALLOC_CONF="${_RJEM_MALLOC_CONF:-background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000,thp:never,metadata_thp:disabled,narenas:2}"
+export TOKIO_WORKER_THREADS="${TOKIO_WORKER_THREADS:-4}"
 # The image must bind loopback; ignore anything that would publish XERJ itself.
 unset XERJ_BIND_ADDRESS XERJ_ALLOW_INSECURE_NETWORK_BIND XERJ_AUTO_PORT || true
 

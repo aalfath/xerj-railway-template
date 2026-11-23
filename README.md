@@ -28,7 +28,7 @@ One service, `XERJ`, built from this repo, with a volume at `/data`:
 | `XERJ_MCP_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}/mcp` | The MCP address to paste into your client (informational). |
 | `PORT` | `8080` | Port Caddy listens on. |
 
-Optional, read by the start script or XERJ: `XERJ_EMBED_MODE` (`lexical` default; `neural` downloads a ~90 MB model to the volume and needs 1 GB RAM), `XERJ_MAX_PROCESS_MEMORY_MB` (override the memory cap), `XERJ_MEMORY_SHARE_PERCENT` (default 45% of the service's memory limit), `XERJ_LOG`.
+Optional, read by the start script or XERJ: `XERJ_EMBED_MODE` (`lexical` default; `neural` downloads a ~90 MB model to the volume and needs 1 GB RAM), `XERJ_MAX_PROCESS_MEMORY_MB` (override the memory cap), `XERJ_MEMORY_SHARE_PERCENT` (default 45% of the service's memory limit), `XERJ_LOG`, `TOKIO_WORKER_THREADS` (default 4) and `_RJEM_MALLOC_CONF` (allocator settings; the default turns transparent huge pages off, which keeps XERJ at about 20 MB at boot).
 
 ## Connect
 
